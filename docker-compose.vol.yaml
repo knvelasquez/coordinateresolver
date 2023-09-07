@@ -1,0 +1,54 @@
+version: "3.9"
+services:
+  zookeeper:
+    container_name: zookeeper
+    image: 'bitnami/zookeeper:latest'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+
+  kafka:
+    container_name: kafka
+    image: 'bitnami/kafka:latest'
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+    ports:
+      - '9092:9092'
+    depends_on:
+      - zookeeper
+    networks:
+      - coordinate-resolver-network
+
+  coordinate-resolver:
+    container_name: coordinate-resolver
+    image: knvelasquez/routersatellite:v1.1
+    environment:
+      # Sets default value 8082 if SPRING_BOOT_PORT is not defined
+      - SPRING_BOOT_PORT=${SPRING_BOOT_PORT:-9090}
+      - KAFKA_URL=kafka:9092
+    ports:
+      # Map default value 8082 if SPRING_BOOT_PORT is not defined
+      - ${SPRING_BOOT_PORT:-9090}:${SPRING_BOOT_PORT:-9090}
+
+    working_dir: /CoordinateResolver
+    volumes:
+      - .:/CoordinateResolver
+    networks:
+      - coordinate-resolver-network
+    depends_on:
+      - kafka
+    command: >
+         bash -c "
+            mvn clean spring-boot:run;
+            #tail -f /dev/null;
+          "
+networks:
+  coordinate-resolver-network:
+    driver: bridge
+
+#compile using volume inside container locally
+#docker compose -f docker-compose.vol.yaml up
+
+#set custom port
+#SPRING_BOOT_PORT=8181 docker compose -f docker-compose.vol.yaml up
