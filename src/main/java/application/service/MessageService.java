@@ -1,5 +1,8 @@
 package application.service;
 
+import org.springframework.stereotype.Service;
+
+@Service
 public class MessageService {
     public String toString(String[] message) {
         StringBuilder result = new StringBuilder();

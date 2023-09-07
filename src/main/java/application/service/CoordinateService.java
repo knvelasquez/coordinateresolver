@@ -2,30 +2,69 @@ package application.service;
 
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class CoordinateService {
-    private final HashMap<String, Coordinate> satellites;
+    private final String KENOBI = "kenobi";
+    private final String SKYWALKER = "skywalker";
+    private final String SATO = "sato";
+    private final Map<String, Coordinate> satellites = Map.of(
+            KENOBI, new Coordinate(500, -200),
+            SKYWALKER, new Coordinate(100, -100),
+            SATO, new Coordinate(500, 100)
+    );
 
-    public CoordinateService(HashMap<String, String> satellites) {
-        this.satellites = new HashMap<>();
-        this.satellites.put("kenobi", new Coordinate(500, -200));
-        this.satellites.put("skywalker", new Coordinate(100, -100));
-        this.satellites.put("sato", new Coordinate(500, 100));
+    public Coordinate calculate(Float distanceFromShipToSatellite, String satelliteName) {
+        Coordinate satellite1 = satellites.get(satelliteName);
+        Coordinate satellite2 = obtainFirstFrom(exclude(satelliteName));
+
+        double distanceFromSatellite1ToSatellite2 = distanceFrom(satellite1, satellite2);
+        double differenceX = xDifferenceFromSatellite1ToShip(satellite1, satellite2, distanceFromShipToSatellite, distanceFromSatellite1ToSatellite2);
+        double differenceY = yDifferenceFromSatellite1ToShip(satellite1, satellite2, distanceFromShipToSatellite, distanceFromSatellite1ToSatellite2);
+
+        // Calculate coordinates of the ship
+        double shipX = satellite1.getX() + differenceX;
+        double shipY = satellite1.getY() + differenceY;
+
+        return new Coordinate(shipX, shipY);
     }
 
-    public Coordinate calculate(Float distance, String name) {
-        //formula=> distance = √((x2 - x1)^2 + (y2 - y1)^2)
-        double x1 = satellites.get(name).getX();
-        double y1 = satellites.get(name).getY();
+    private double xDifferenceFromSatellite1ToShip(Coordinate satellite1, Coordinate satellite2, Float distanceFromShipToSatellite1, double distanceFromSatellite1ToSatellite2) {
+        double x1 = satellite1.getX();
+        double x2 = satellite2.getX();
+        return (distanceFromShipToSatellite1 * (x2 - x1)) / distanceFromSatellite1ToSatellite2;
+    }
 
-        double x4 = satellites.get("skywalker").getX();
-        //double x4 = x1 + Math.sqrt(Math.pow(distance, 2) - Math.pow(y4 - y1, 2));
+    private double yDifferenceFromSatellite1ToShip(Coordinate satellite1, Coordinate satellite2, Float distanceFromShipToSatellite1, double distanceFromSatellite1ToSatellite2) {
+        double y1 = satellite1.getY();
+        double y2 = satellite2.getY();
+        return (distanceFromShipToSatellite1 * (y2 - y1)) / distanceFromSatellite1ToSatellite2;
+    }
 
-        // Calculate the y-coordinate of the fourth object
-        double y4 = Math.sqrt(Math.pow(distance, 2) - Math.pow(x4 - x1, 2)) - y1;
+    private double distanceFrom(Coordinate satellite1, Coordinate satellite2) {
+        double x1 = satellite1.getX();
+        double y1 = satellite1.getY();
 
-        return new Coordinate(x4, y4);
+        double x2 = satellite2.getX();
+        double y2 = satellite2.getY();
+
+        return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    }
+
+    private Map<String, Coordinate> exclude(String satelliteName) {
+        return satellites.entrySet()
+                .stream()
+                .filter(entry -> !satelliteName.equals(entry.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private Coordinate obtainFirstFrom(Map<String, Coordinate> satellites) {
+        return satellites.entrySet()
+                .stream()
+                .findFirst()
+                .map(Map.Entry::getValue)
+                .orElse(null);
     }
 }
