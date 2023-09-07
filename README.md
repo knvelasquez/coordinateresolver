@@ -2,10 +2,12 @@
 # Microservicio Coordinate Resolver
 
 ### Spring Boot, java17,  Cola de Mensajes(Kafka) y PostgreSQl
-Proxy inverso que valida las solicitudes, recibe el payload completo con el mensaje y distancia de cada uno de los satelites
-Determina cual solicitud se puede procesar desde el propio satelite que recibió en la red interna
-El resto de la solicitud es enviado/redirigdo hacia la puerta de enlace del siguiente satellite
-El cual se determina mediante una logica y con el payload restante
+Recibe un payload desmenuzado con el mensaje recibido en el satelite
+Calcula las coordenadas mediante la triangulación de la posición de los demás satelites
+Procesa el mensaje
+Encrypta el resultado del mensaje y las coordenadas en un objeto y agrega la clave privada que fué recibida como un secreto
+La idea es que el mensaje pueda ser desencryptado por otra entidad que pueda aportar el mismo secreto que se indico para encryptar por primera vez
+Esto agrega una capa de seguridad adicional para que el caso de hackeo o perdida de datos ya que todo lo almancenado en esa zona desmilitarizada se encuentra encryptado
 
 # Tabla de contenido
 
@@ -20,27 +22,27 @@ El cual se determina mediante una logica y con el payload restante
 Clonar el repositorio
 
 ```bash
-git clone git@github.com:knvelasquez/routersatellite.git
+git git@github.com:knvelasquez/coordinateresolver.git
 ```
 
 ## Navegar hasta el directorio del proyecto
 
 ```bash
-cd routersatellite/
+cd coordinateresolver/
 ```
 
 ## Construir el contenedor
 
 ```bash
-SATELLITE_NAME=kenobi SPRING_BOOT_PORT=9094 docker compose up
+SPRING_BOOT_PORT=9093 docker compose up
 ```
-
-**Nota**: Se debe establecer **SATELLITE_NAME** para definir el nombre contextual del satellite
 
 **Nota 2** Se puede definir  **SPRING_BOOT_PORT** para indicar el puerto si no se establce se configura el puerto por default **9093**
 
 ### Esperar que finalice la creación del contenedor y la ejecución de pruebas
-✔ Container router-satellite  Created
+✔ Container zookeeper            Created                                                                                                                                                                                  0.0s
+✔ Container kafka                Created                                                                                                                                                                                  0.0s
+✔ Container coordinate-resolver  Created
 
 **Nota**: para validar que los contenedores esten iniciados correctamente
 
@@ -50,7 +52,10 @@ docker ps
 **Output**
 ```bash
 CONTAINER ID   IMAGE                              COMMAND                  CREATED          STATUS         PORTS                                       NAMES
-5b79722ec60f   knvelasquez/routersatellite:v1.1   "/usr/local/bin/mvn-…"   53 seconds ago   Up 4 seconds   0.0.0.0:9094->9094/tcp, :::9094->9094/tcp   router-satellite
+CONTAINER ID   IMAGE                                 COMMAND                  CREATED              STATUS          PORTS                                       NAMES
+bb511851ecb0   bitnami/kafka:latest                  "/opt/bitnami/script…"   About a minute ago   Up 7 seconds    0.0.0.0:9092->9092/tcp, :::9092->9092/tcp   kafka
+c83a4bdc0303   knvelasquez/coordinateresolver:v1.1   "/usr/local/bin/mvn-…"   About a minute ago   Up 7 seconds    0.0.0.0:9093->9093/tcp, :::9093->9093/tcp   coordinate-resolver
+44dbf8a9d1d9   bitnami/zookeeper:latest              "/opt/bitnami/script…"   2 minutes ago        Up 7 seconds    2181/tcp, 2888/tcp, 3888/tcp, 8080/tcp      zookeeper
 ```
 
 ## Referencia Microservicio
@@ -58,69 +63,38 @@ CONTAINER ID   IMAGE                              COMMAND                  CREAT
 #### description
 
 ```http
-  POST /router/satellite
+  POST /coordinate/resolver
 ```
 
 | Body Parameter                    | Type     | Description   |
 |:----------------------------------|:---------|:--------------|
-| {`satellite`:[{                   |          |               |
+| {`satellite`:{                    |          |               |
 | `name`:"satellitename"            | `String` | **Required**. |
 | `distance`:100.0                  | `Float`  | **Required**. |
 | `message`:["message","separated"] | `Array`  | **Required**. |
-| },                                |          |            |
-| {...}                             |          |               |
-| ]}                                |          |               |
+| }                                 |          |               |
 
 ## Usando **curl**
 
-Se pueden utilizar estos comandos directamente en la terminal de la siguiente manera (*Tener curl instalado*)
+description
 
-### POST /calculador
+### POST /coordinate/resolver
 ```bash
-curl --location --request POST 'unknow/router/satellite' \
+curl --location --request POST 'http://api.gateway/coordinate/resolver' \
 --header 'Authorization: Bearer token' \
 --header 'Content-Type: application/json' \
 --data-raw '{
-    "satellites": [
-        {
-            "name": "satellite1",
-            "distance": 100.0,
-            "message": [
-                "message",
-                 "for",
-                "satellite1"
-                "separated",
-                "by",
-                "strings",
-                "array"
-            ]
-        },
-        {
-            "name": "satellite2",
-            "distance": 200.0,
-            "message": [
-                "message",
-                 "for",
-                "satellite2"
-                "separated",
-                "by",
-                "strings",
-                "array"
-            ]
-        },
-        {
-            "name": "satellite3",
-            "distance": 300.0,
-            "message": [
-                "message",
-                "for",
-                "satellite3"
-                "separated",
-                "by",
-                "strings",
-                "array"
-            ]
-        }
+    "name": "satellite-name",
+    "distance": 100.0,
+    "message": [
+        "message",
+        "",
+        "",
+        "test",
+        ""
     ]
 }'
 ```
+
+**Nota**: este es un servicio privado por lo que no está expuesto públicamente su uso se realiza mediante la puerta de **enlace/apigateway** y **[RouterSatellite](https://github.com/knvelasquez/routersatellite)**
+el cual se encarga de derivar las solicitudes a este microservicio
