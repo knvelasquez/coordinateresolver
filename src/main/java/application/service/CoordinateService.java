@@ -15,7 +15,7 @@ public class CoordinateService {
         this.satellites.put("sato", new Coordinate(500, 100));
     }
 
-    public Coordinate calculateFrom(Float distance, String name) {
+    public Coordinate calculate(Float distance, String name) {
         //formula=> distance = √((x2 - x1)^2 + (y2 - y1)^2)
         double x1 = satellites.get(name).getX();
         double y1 = satellites.get(name).getY();

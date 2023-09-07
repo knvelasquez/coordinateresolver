@@ -26,12 +26,13 @@ public class JwtService {
     }
 
     public SecurityKey decode(String jwt) {
+        String BEARER = "Bearer ";
         Key key = getSignInKey();
         try {
             Claims claims = Jwts.parserBuilder()
                     .setSigningKey(key)
                     .build()
-                    .parseClaimsJws(jwt)
+                    .parseClaimsJws(jwt.replace(BEARER, ""))
                     .getBody();
             //map keys from claims
             String company = (String) claims.get(COMPANY_CLAIM_KEY);

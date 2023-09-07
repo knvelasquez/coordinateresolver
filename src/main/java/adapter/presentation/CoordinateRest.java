@@ -1,9 +1,6 @@
 package adapter.presentation;
 
-import application.service.Coordinate;
-import application.service.CoordinateService;
-import application.service.EncryptService;
-import application.service.JwtService;
+import application.service.*;
 import domain.JsonService;
 import domain.Producer;
 import model.CoordinateModel;
@@ -24,15 +21,16 @@ public class CoordinateRest {
     private final EncryptService encryptService;
     private final JsonService jsonService;
     private final Producer kafka;
-
     private final CoordinateService coordinateService;
+    private final MessageService messageService;
 
-    public CoordinateRest(JwtService jwtService, EncryptService encryptService, JsonService jsonService, Producer kafka, CoordinateService coordinateService) {
+    public CoordinateRest(JwtService jwtService, EncryptService encryptService, JsonService jsonService, Producer kafka, CoordinateService coordinateService, MessageService messageService) {
         this.jwtService = jwtService;
         this.encryptService = encryptService;
         this.jsonService = jsonService;
         this.kafka = kafka;
         this.coordinateService = coordinateService;
+        this.messageService = messageService;
     }
 
     @GetMapping(value = "/health")
@@ -48,27 +46,14 @@ public class CoordinateRest {
     @PostMapping(value = "/resolver")
     public CoordinateModel execute(@RequestBody MessageModel messageModel,
                                    @RequestHeader(value = "Authorization") String jwt) {
-        SecurityKey key = jwtService.decode(jwt.replace("Bearer ", ""));
-        Coordinate coordinate = coordinateService.calculateFrom(messageModel.getDistance(), messageModel.getName());
-        CoordinateModel coordinates = new CoordinateModel(coordinate.getX(), coordinate.getY(), stringFrom(messageModel.getMessage()));
+        SecurityKey key = jwtService.decode(jwt);
+        Coordinate coordinate = coordinateService.calculate(messageModel.getDistance(), messageModel.getName());
+        CoordinateModel coordinates = new CoordinateModel(coordinate.getX(), coordinate.getY(), messageService.toString(messageModel.getMessage()));
         String message = jsonService.mapToString(coordinates);
         String encrypted = encryptService.from(message, key.getPrivateKey());
         kafka.publish(encrypted);
         return coordinates;
     }
 
-    private String stringFrom(String[] message) {
-        StringBuilder result = new StringBuilder();
 
-        for (String word : message) {
-            if (!word.isEmpty()) {
-                result.append(word).append(" ");
-            }
-        }
-        //Remove extra trailing white space, if any
-        if (result.length() > 0) {
-            result.deleteCharAt(result.length() - 1);
-        }
-        return result.toString();
-    }
 }
